@@ -1,0 +1,128 @@
+{
+  "ok": true,
+  "type": "aggregated-only",
+  "generatedAt": "2026-10-25T01:57:01.112Z",
+  "publishedAt": "2026-10-25T01:57:02.054Z",
+  "total": 16,
+  "minimumGroupSize": 3,
+  "kpis": {
+    "adoptionPct": 100,
+    "maturityAvg": 65.1,
+    "governanceAvg": 31.8,
+    "digitalCompetenceAvg": 64,
+    "interestAvg": 90.6,
+    "highRiskPct": 68.8,
+    "trainingNeedPct": 93.8,
+    "toolsAvg": 2.8,
+    "usesAvg": 4.1
+  },
+  "distributions": {
+    "maturity": {
+      "Avançada": 2,
+      "Intermediária": 8,
+      "Em desenvolvimento": 6,
+      "Inicial": 0
+    },
+    "risk": {
+      "Alto": 11,
+      "Moderado": 4,
+      "Baixo": 1
+    }
+  },
+  "rankings": {
+    "tools": [
+      {
+        "label": "ChatGPT",
+        "value": 13,
+        "pct": 81.3
+      },
+      {
+        "label": "Gemini",
+        "value": 7,
+        "pct": 43.8
+      },
+      {
+        "label": "Claude",
+        "value": 6,
+        "pct": 37.5
+      },
+      {
+        "label": "Jusbrasil / recursos de IA jurídica",
+        "value": 6,
+        "pct": 37.5
+      },
+      {
+        "label": "NotebookLM",
+        "value": 6,
+        "pct": 37.5
+      }
+    ],
+    "uses": [
+      {
+        "label": "Escrever petições e peças",
+        "value": 11,
+        "pct": 68.8
+      },
+      {
+        "label": "Criar conteúdo para redes sociais",
+        "value": 10,
+        "pct": 62.5
+      },
+      {
+        "label": "Resumir processos e documentos",
+        "value": 10,
+        "pct": 62.5
+      },
+      {
+        "label": "Criar contratos",
+        "value": 9,
+        "pct": 56.3
+      },
+      {
+        "label": "Atendimento ao cliente",
+        "value": 8,
+        "pct": 50
+      },
+      {
+        "label": "Pesquisa de jurisprudência",
+        "value": 7,
+        "pct": 43.8
+      },
+      {
+        "label": "Organização financeira e administrativa",
+        "value": 6,
+        "pct": 37.5
+      },
+      {
+        "label": "Transcrição de audiências",
+        "value": 4,
+        "pct": 25
+      }
+    ],
+    "training": [
+      {
+        "label": "Governança, ética, LGPD e validação de respostas",
+        "value": 11,
+        "pct": 68.8
+      }
+    ],
+    "governance": [
+      {
+        "label": "Confiro as informações geradas pela IA",
+        "value": 15,
+        "pct": 93.8
+      },
+      {
+        "label": "Verifico jurisprudência e referências citadas",
+        "value": 14,
+        "pct": 87.5
+      },
+      {
+        "label": "Evito inserir dados pessoais ou sigilosos",
+        "value": 5,
+        "pct": 31.3
+      }
+    ],
+    "systems": []
+  }
+}
