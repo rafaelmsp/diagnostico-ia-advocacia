@@ -1,0 +1,37 @@
+name: Atualizar estatisticas anonimas
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: estatisticas-anonimas
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Gerar indicadores sem dados pessoais
+        env:
+          GOOGLE_SHEETS_COORD_TOKEN: ${{ secrets.GOOGLE_SHEETS_COORD_TOKEN }}
+        run: node scripts/atualizar-resumo-anonimo.mjs
+      - name: Publicar JSON estatistico
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/resumo-anonimo.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Atualiza estatisticas anonimas da pesquisa"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
