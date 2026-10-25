@@ -52,10 +52,10 @@ body:before,body:after{content:"";position:fixed;z-index:0;width:34vw;height:34v
 #gateToggle{position:fixed;right:12px;bottom:12px;z-index:55;border-radius:10px;border:1px solid #317eaf;background:#0b2942;color:#c6eafa;padding:9px 12px;cursor:pointer;font-size:11px}
 #gateToggle[hidden]{display:none}</style></head><body><div id="authGate" role="dialog" aria-modal="true" aria-labelledby="authTitle"><form class="authCard" id="authForm">
 <div style="color:#67cfff;letter-spacing:.16em;font-size:10px">IA NA ADVOCACIA · COORDENAÇÃO</div>
-<h2 id="authTitle">Acesso ao dashboard</h2><p>Digite o código de acesso disponibilizado pela Coordenação.</p>
+<h2 id="authTitle">Acesso ao dashboard</h2><p>Informe a senha de Coordenação (completa) ou a senha de Consulta (anônima).</p>
 <label>Código de acesso<input id="authToken" type="password" required autocomplete="off" spellcheck="false" placeholder="Digite seu código"></label>
 <button type="submit">Entrar</button><div id="authError" role="alert" aria-live="polite"></div>
-<small>Um único código para pessoas autorizadas. Nenhum cadastro é necessário.</small><p style="margin-top:18px"><a href="../">← Voltar ao portal</a></p>
+<small>Dois níveis de acesso. Sem cadastro individual.</small><p style="margin-top:18px"><a href="../">← Voltar ao portal</a></p>
 </form></div><button id="gateToggle" type="button" hidden>Sair do dashboard</button><canvas id="particles" aria-hidden="true"></canvas><div id="loadingOverlay" role="status" aria-live="polite"><div class="loadingBox"><div class="loadingIcon"><span>⚖</span></div><span>Sincronizando dados da Coordenação…</span></div></div>
 <div class="app"><aside class="sidebar"><div class="brand"><div class="mark">⚖</div><div><b>IA NA ADVOCACIA</b><small>DIAGNÓSTICO E GOVERNANÇA</small></div></div><nav class="nav"><a href="#visao">▣ Visão Geral</a><a href="#respondentes">◉ Respondentes</a><a href="#uso">◈ Uso de IAs</a><a href="#governanca">◇ Governança</a><a href="#capacitacao">△ Capacitações</a></nav><div class="sideTitle">Agentes analíticos</div><div class="agent"><i>D</i><div><b>Analista de Dados</b><small>Adoção, maturidade e tendências.</small></div></div><div class="agent"><i>G</i><div><b>Governança</b><small>Riscos, validação, ética e LGPD.</small></div></div><div class="agent"><i>C</i><div><b>Capacitação</b><small>Prioridades de formação.</small></div></div><div class="agent"><i>E</i><div><b>Estratégia</b><small>Recomendações para a Comissão.</small></div></div><div class="sideStatus"><span class="dot" id="sideDot"></span><b id="sideStatus">Conectando</b><br><span id="sheet">Google Sheets</span></div></aside>
 <main class="main"><section class="top" id="visao"><div class="head"><div class="lock">🔒</div><div><h1>Diagnóstico de IA na Advocacia</h1><p>Painel interno da Coordenação · dados nominais, indicadores e recomendações</p></div></div><div class="actions"><div class="restricted">🔐 ACESSO RESTRITO</div><input id="search" placeholder="Buscar nome ou OAB"><div class="status"><span class="dot" id="topDot"></span><span id="updated">Conectando…</span></div><button class="btn shineAction" id="refresh"><span>↻ Atualizar</span></button></div></section><div class="connectionError" id="connectionError" role="alert"></div>
@@ -67,7 +67,7 @@ body:before,body:after{content:"";position:fixed;z-index:0;width:34vw;height:34v
 <script>
 document.querySelector('.loadingBox').insertAdjacentHTML('beforeend','<div class="loadingProgress" role="progressbar" aria-label="Carregando dados"></div>');
 document.querySelector('#respondentes thead th:nth-child(6)').textContent='Habilidade';
-const API_URL="https://script.google.com/macros/s/AKfycbxSNOFnMmhJPmutMEEOmFtkFeXH2FyUQlSR6OcFn1jsZcas7G8-I39HiQtm1qPYcrM/exec";let ACCESS_TOKEN="";let DATA=null;
+const API_URL="https://script.google.com/macros/s/AKfycbxSNOFnMmhJPmutMEEOmFtkFeXH2FyUQlSR6OcFn1jsZcas7G8-I39HiQtm1qPYcrM/exec";let ACCESS_TOKEN="";let DATA=null;let ACCESS_MODE=null;let ANON_DATA=null;
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])),fmt=n=>Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:1}),pct=n=>fmt(n)+'%';
 function ini(n){return String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?'}function hue(n){let h=0;for(const c of String(n))h=(h*31+c.charCodeAt(0))%360;return h}function av(n){const h=hue(n);return `background:linear-gradient(145deg,hsl(${h} 70% 42%),hsl(${(h+45)%360} 75% 27%))`}
 function badge(v,risk=false){let c='mid';if(risk)c=/alto/i.test(v)?'bad':/baixo/i.test(v)?'good':'mid';else c=/avanç|muito/i.test(v)?'good':/inic|pouco/i.test(v)?'bad':'mid';return `<span class="badge ${c}">${esc(v||'—')}</span>`}function score(v){v=Number(v||0);return `<div class="score"><b>${Math.round(v)}</b><div class="mini"><div style="width:${Math.max(0,Math.min(100,v))}%"></div></div></div>`}
@@ -83,8 +83,8 @@ const openPersonOriginal=openPerson;
 openPerson=function(id){openPersonOriginal(id);document.querySelectorAll('#details .detail label').forEach(label=>{if(label.textContent==='Competência digital')label.textContent='Habilidade digital'})};
 function insight(p){const k=p.kpis||{},t=p.rankings?.tools||[],tr=p.rankings?.training||[];const xs=[['Analista de Dados',`Adoção de IA em ${pct(k.adoptionPct)} e maturidade média de ${fmt(k.maturityAvg)}/100.${t[0]?' Ferramenta mais citada: '+t[0].label+'.':''}`],['Governança',`Governança média de ${fmt(k.governanceAvg)}/100. ${(+k.highRiskPct||0)>0?pct(k.highRiskPct)+' da amostra está em risco alto.':'Sem casos classificados em risco alto neste momento.'}`],['Capacitação',tr[0]?`Prioridade mais recorrente: “${tr[0].label}” (${tr[0].value} respondente(s)).`:'Base ainda insuficiente para priorização.'],['Estratégia',(+k.trainingNeedPct||0)>=50?'A maioria da amostra demanda capacitação. Recomenda-se trilha em camadas: fundamentos → prática → governança → automação.':'O perfil atual permite avançar para aprofundamento e automação, mantendo governança como eixo transversal.']];$('insights').innerHTML=xs.map(([a,t])=>`<div class="ins"><b>${a}</b><p>${esc(t)}</p></div>`).join('')}
 function render(p){DATA=p;const k=p.kpis||{};$('sheet').textContent=p.spreadsheet||'Google Sheets';$('kTotal').textContent=fmt(p.total);$('kAdoption').textContent=pct(k.adoptionPct);$('kMaturity').textContent=fmt(k.maturityAvg)+'/100';$('kTools').textContent=(p.rankings?.tools||[]).length;$('kUses').textContent=(p.rankings?.uses||[]).length;$('kTraining').textContent=pct(k.trainingNeedPct);maturity(p.distributions?.maturity,p.total||0);bars('tools',p.rankings?.tools);bars('uses',p.rankings?.uses);rank('training',p.rankings?.training);rank('governance',p.rankings?.governance);rank('systems',p.rankings?.systems);people();insight(p)}
-async function load(){if(!ACCESS_TOKEN)return false;document.body.classList.add('loading');$('refresh').disabled=true;status(false,'Atualizando…');$('connectionError').classList.remove('show');try{const p=await jsonp();if(!p||!p.ok)throw new Error(p?.error||'Resposta inválida do Web App.');render(p);status(true,'Atualizado '+new Date(p.generatedAt||Date.now()).toLocaleString('pt-BR'));return true}catch(e){status(false,'Erro de conexão');$('connectionError').textContent='Não foi possível carregar os dados: '+(e.message||e)+' Confira a implantação do Apps Script e clique em Atualizar.';$('connectionError').classList.add('show');return false}finally{document.body.classList.remove('loading');$('refresh').disabled=false}}
-$('refresh').onclick=load;$('search').addEventListener('input',people);$('close').onclick=()=>$('modal').classList.remove('show');$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('show')};setInterval(load,300000);
+async function load(){if(ACCESS_MODE!=='full'||!ACCESS_TOKEN)return false;document.body.classList.add('loading');$('refresh').disabled=true;status(false,'Atualizando…');$('connectionError').classList.remove('show');try{const p=await jsonp();if(!p||!p.ok)throw new Error(p?.error||'Resposta inválida do Web App.');render(p);status(true,'Atualizado '+new Date(p.generatedAt||Date.now()).toLocaleString('pt-BR'));return true}catch(e){status(false,'Erro de conexão');$('connectionError').textContent='Não foi possível carregar os dados: '+(e.message||e)+' Confira a implantação do Apps Script e clique em Atualizar.';$('connectionError').classList.add('show');return false}finally{document.body.classList.remove('loading');$('refresh').disabled=false}}
+$('refresh').onclick=load;$('search').addEventListener('input',people);$('close').onclick=()=>$('modal').classList.remove('show');$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('show')};setInterval(()=>{if(ACCESS_MODE==='anonymous')loadAnonymous();else if(ACCESS_MODE==='full')load()},300000);
 /* Filtros, indicadores dinâmicos e relatório em PDF */
 const filterPanel=document.createElement('section');
 filterPanel.className='filters';
@@ -299,6 +299,98 @@ document.querySelector('.footer').insertAdjacentHTML('beforeend','<br><span styl
 </script><script>
 (function(){
 'use strict';
+const root=document.querySelector('.actions');
+const safeButton=document.createElement('button');
+safeButton.type='button';
+safeButton.className='btn shineAction';
+safeButton.style.display='none';
+safeButton.innerHTML='<span>⇩ Relatório anônimo PDF</span>';
+root.appendChild(safeButton);
+
+function limitAnonymousView(){
+  DATA=null;
+  for(const selector of ['#respondentes','#evolutionPanel','#modal','.filters','#search']){
+    const element=document.querySelector(selector);
+    if(element)element.style.display='none';
+  }
+  for(const selector of ['a[href="#respondentes"]']){
+    const element=document.querySelector(selector);
+    if(element)element.style.display='none';
+  }
+  const intro=document.querySelector('.head p');
+  if(intro)intro.textContent='Visualização de pesquisa anonimizada · sem acesso a cadastros individuais';
+  const badge=document.querySelector('.restricted');
+  if(badge)badge.textContent='◈ VISUALIZAÇÃO ANÔNIMA';
+  const nav=document.querySelector('.sideTitle');
+  if(nav)nav.textContent='Indicadores consolidados';
+  safeButton.style.display='';
+  $('sheet').textContent='Resumo estatístico anonimizado';
+}
+function renderAggregate(p){
+  if(p.type!=='aggregated-only'||'respondents' in p)throw Error('Formato do resumo inadequado.');
+  const t=Number(p.total)||0,k=p.kpis||{},rank=p.rankings||{};
+  $('kTotal').textContent=fmt(t);
+  if(t<5){
+    $('kAdoption').textContent='—';$('kMaturity').textContent='—';
+    $('kTools').textContent='—';$('kUses').textContent='—';$('kTraining').textContent='—';
+    $('dtotal').textContent=t;
+    for(const id of ['tools','uses','training','governance','systems','legend','insights'])$(id).textContent='Aguardando amostra mínima de cinco participantes.';
+    return;
+  }
+  $('kAdoption').textContent=pct(k.adoptionPct);
+  $('kMaturity').textContent=fmt(k.maturityAvg)+'/100';
+  $('kTools').textContent=(rank.tools||[]).length;
+  $('kUses').textContent=(rank.uses||[]).length;
+  $('kTraining').textContent=pct(k.trainingNeedPct);
+  maturity(p.distributions?.maturity||{},t);
+  bars('tools',rank.tools||[]);
+  bars('uses',rank.uses||[]);
+  rankFn('training',rank.training||[]);
+  rankFn('governance',rank.governance||[]);
+  rankFn('systems',rank.systems||[]);
+  insight({kpis:k,rankings:rank});
+}
+const rankFn=rank;
+
+window.loadAnonymous=async function(){
+  limitAnonymousView();
+  status(false,'Atualizando resumo…');
+  $('connectionError').classList.remove('show');
+  $('refresh').disabled=true;
+  try{
+    const source='https://raw.githubusercontent.com/rafaelmsp/diagnostico-ia-advocacia/main/data/resumo-anonimo.json';
+    const response=await fetch(source+'?t='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw Error('Indicadores anônimos ainda não foram publicados (HTTP '+response.status+').');
+    const p=await response.json();
+    if(!p||p.ok!==true||p.type!=='aggregated-only'||'respondents' in p)throw Error('Resposta não é um resumo anonimizado válido.');
+    ANON_DATA=p;
+    renderAggregate(p);
+    status(true,'Resumo de '+new Date(p.publishedAt||Date.now()).toLocaleString('pt-BR'));
+    return true;
+  }catch(error){
+    status(false,'Resumo indisponível');
+    $('connectionError').textContent='O modo anônimo está disponível, mas os indicadores consolidados ainda não foram sincronizados: '+error.message;
+    $('connectionError').classList.add('show');
+    return false;
+  }finally{$('refresh').disabled=false}
+};
+
+$('refresh').onclick=()=>ACCESS_MODE==='anonymous'?loadAnonymous():load();
+
+safeButton.onclick=()=>{
+ if(ACCESS_MODE!=='anonymous'||!ANON_DATA)return;
+ const p=ANON_DATA, k=p.kpis||{}, rank=p.rankings||{}, safe=window.esc||esc;
+ const itemlist=arr=>Array.isArray(arr)&&arr.length?'<ol>'+arr.map(x=>'<li>'+safe(x.label)+' — '+Number(x.value||0)+' menções</li>').join('')+'</ol>':'<p>Sem categorias divulgáveis.</p>';
+ const content='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório anônimo de IA na Advocacia</title><style>@page{size:A4;margin:18mm}body{font:12px Arial,sans-serif;color:#132b46}h1,h2{color:#0f2c59}h1{font-size:25px}h2{border-bottom:1px solid #d6e5ee;padding-bottom:6px;margin-top:24px}section{break-inside:avoid}.note{font-size:10px;color:#567080}li{margin:7px 0}</style></head><body><h1>Diagnóstico de IA na Advocacia</h1><p>Relatório estatístico anonimizado</p><p><b>Respostas:</b> '+Number(p.total)+' &nbsp; <b>Adoção de IA:</b> '+(p.total>=5?pct(k.adoptionPct):'—')+' &nbsp; <b>Maturidade:</b> '+(p.total>=5?fmt(k.maturityAvg)+'/100':'—')+'</p><section><h2>Ferramentas de IA</h2>'+itemlist(rank.tools)+'</section><section><h2>Casos de uso</h2>'+itemlist(rank.uses)+'</section><section><h2>Capacitação</h2>'+itemlist(rank.training)+'</section><p class="note">Dados agregados, sem cadastros ou respostas individuais. Grupos com menos de três citações foram excluídos. Gerado em '+new Date().toLocaleString('pt-BR')+'.</p></body></html>';
+ const w=window.open('','_blank');
+ if(!w){alert('Permita pop-ups para imprimir o PDF anônimo.');return;}
+ w.document.open();w.document.write(content);w.document.close();w.focus();setTimeout(()=>w.print(),350);
+};
+})();
+</script>
+<script>
+(function(){
+'use strict';
 const gate=document.getElementById('authGate'),field=document.getElementById('authToken'),error=document.getElementById('authError'),form=document.getElementById('authForm'),submit=form.querySelector('button[type="submit"]'),button=document.getElementById('gateToggle');
 const from64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function decodeAccess(code){
@@ -313,13 +405,22 @@ form.addEventListener('submit',async e=>{
  e.preventDefault();if(submit.disabled)return;
  submit.disabled=true;submit.textContent='Conferindo…';error.textContent='';
  try{
-   const apiToken=await decodeAccess(field.value);
-   ACCESS_TOKEN=apiToken;field.value='';
-   gate.hidden=true;button.hidden=false;
-   const connected=await load();
-   if(!connected){error.textContent='Não foi possível conectar à planilha no momento. Tente novamente.';gate.hidden=false;button.hidden=true;ACCESS_TOKEN='';}
+   const input=field.value.trim().toUpperCase().replace(/\s+/g,'');
+   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input));
+   const hex=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');
+   if(hex==='b2431e486a9a228da714b22a0ad1b1300bc3fd07cb1f16a239144c71a2636cb6'){
+     ACCESS_MODE='anonymous';ACCESS_TOKEN='';field.value='';
+     gate.hidden=true;button.hidden=false;
+     await window.loadAnonymous();
+   }else{
+     const apiToken=await decodeAccess(field.value);
+     ACCESS_MODE='full';ACCESS_TOKEN=apiToken;field.value='';
+     gate.hidden=true;button.hidden=false;
+     const connected=await load();
+     if(!connected){error.textContent='Não foi possível conectar à planilha no momento. Tente novamente.';gate.hidden=false;button.hidden=true;ACCESS_TOKEN='';ACCESS_MODE=null;}
+   }
  }catch(err){
-   ACCESS_TOKEN='';error.textContent='Código incorreto. Confira e tente novamente.';
+   ACCESS_MODE=null;ACCESS_TOKEN='';error.textContent='Senha inválida. Confira e tente novamente.';
    field.value='';gate.hidden=false;button.hidden=true;field.focus();
  }finally{submit.disabled=false;submit.textContent='Entrar';}
 });
