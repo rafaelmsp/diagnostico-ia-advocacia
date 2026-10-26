@@ -270,6 +270,50 @@ function reportHtmlAnonymous(rows){
   html=html.replace('Relatório executivo completo da Coordenação','Relatório estatístico anonimizado da Coordenação');
   html=html.replace('Este relatório contém dados nominais e deve ser tratado conforme as regras institucionais aplicáveis.',
     'Relatório estatístico sem a relação nominal de participantes. Cuidado com recortes muito pequenos, que podem permitir reidentificação indireta.');
+  // Acrescenta visualizações ao relatório anônimo da Coordenação (sem alterar o nominal).
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const sections=[...doc.querySelectorAll('section.box')];
+  let charts=0;
+  for(const section of sections){
+    const heading=section.querySelector('h3');
+    const table=section.querySelector('table');
+    if(!heading||!table)continue;
+    const title=heading.textContent.trim();
+    if(!/maturidade|risco|ferramentas|casos de uso|governança|capacitação/i.test(title))continue;
+    const values=[...table.querySelectorAll('tr')].map(tr=>{
+      const cells=[...tr.querySelectorAll('td')];
+      if(cells.length<2)return null;
+      const label=(cells[0].textContent||'').trim();
+      const count=Number((cells[1].textContent||'').replace(/[^0-9]/g,''));
+      return label&&Number.isFinite(count)?{label,count}:null;
+    }).filter(Boolean).filter(x=>x.count>=3);
+    if(!values.length)continue;
+    const chart=doc.createElement('div');
+    chart.className='anonymousCharts';
+    chart.style.cssText='margin:12px 0 8px;padding:12px;border:1px solid #d5e3ee;border-radius:8px;background:#f8fbfe;break-inside:avoid-page';
+    const max=Math.max(...values.map(x=>x.count),1);
+    const palette=['#227cb7','#1d9b9d','#6079c4','#bc9850'];
+    values.forEach((x,i)=>{
+      const line=doc.createElement('div');
+      line.style.cssText='display:grid;grid-template-columns:minmax(95px,40%) 1fr 42px;gap:9px;align-items:center;margin:8px 0;font-size:10px';
+      const label=doc.createElement('span');label.textContent=x.label;
+      const track=doc.createElement('div');track.style.cssText='height:13px;background:#e3edf4;border-radius:4px;overflow:hidden';
+      const bar=doc.createElement('div');bar.style.cssText='height:100%;width:'+Math.round(x.count/max*100)+'%;background:'+palette[i%palette.length]+';print-color-adjust:exact;-webkit-print-color-adjust:exact';
+      track.appendChild(bar);
+      const count=doc.createElement('strong');count.textContent=String(x.count);
+      line.append(label,track,count);chart.appendChild(line);
+    });
+    const caption=doc.createElement('p');caption.style.cssText='font-size:9px;color:#62798b;margin:9px 0 0';caption.textContent='Gráfico de barras · contagens agregadas · categorias com menos de 3 respostas omitidas';
+    chart.appendChild(caption);
+    table.insertAdjacentElement('afterend',chart);charts++;
+  }
+  if(charts){
+    const heading=doc.createElement('p');
+    heading.style.cssText='color:#1c6794;font-size:10px;font-weight:bold;margin:8px 0';
+    heading.textContent='RELATÓRIO ANÔNIMO VISUAL · '+charts+' GRÁFICOS ESTATÍSTICOS';
+    doc.body.insertBefore(heading,doc.body.firstChild);
+  }
+  html='<!doctype html>'+doc.documentElement.outerHTML;
   return html;
 }
 function exportPdf(){
