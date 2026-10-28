@@ -329,6 +329,7 @@ function limitAnonymousView(){
   const nav=document.querySelector('.sideTitle');
   if(nav)nav.textContent='Indicadores consolidados';
   safeButton.style.display='';
+  const refresh=$('refresh');if(refresh)refresh.innerHTML='<span>↻ Verificar atualização</span>';
   $('sheet').textContent='Resumo estatístico anonimizado';
 }
 function renderAggregate(p){
@@ -370,7 +371,19 @@ window.loadAnonymous=async function(){
     if(!p||p.ok!==true||p.type!=='aggregated-only'||'respondents' in p)throw Error('Resposta não é um resumo anonimizado válido.');
     ANON_DATA=p;
     renderAggregate(p);
-    status(true,'Resumo de '+new Date(p.publishedAt||Date.now()).toLocaleString('pt-BR'));
+    const lastSync=new Date(p.publishedAt||p.generatedAt||0);
+    if(Number.isNaN(lastSync.getTime()))throw Error('O resumo não possui data válida de sincronização.');
+    const delayMinutes=Math.max(0,Math.floor((Date.now()-lastSync.getTime())/60000));
+    const label='Dados de '+lastSync.toLocaleString('pt-BR');
+    status(true,label);
+    if(delayMinutes>20){
+      $('topDot').className='dot';
+      $('sideDot').className='dot';
+      $('updated').textContent='Resumo desatualizado · '+lastSync.toLocaleString('pt-BR');
+      $('sideStatus').textContent='Sincronização pendente';
+      $('connectionError').textContent='Atenção: este resumo foi sincronizado há '+delayMinutes+' minutos e pode não incluir as respostas mais recentes. O acesso Master consulta a planilha diretamente. O modo anônimo depende da atualização de estatísticas do GitHub Actions.';
+      $('connectionError').classList.add('show');
+    }
     return true;
   }catch(error){
     status(false,'Resumo indisponível');
