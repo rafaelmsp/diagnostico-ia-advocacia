@@ -2,7 +2,7 @@ name: Atualizar estatisticas anonimas
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '*/5 * * * *'
 
 permissions:
   contents: write
@@ -21,6 +21,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verificar configuração de acesso
+        env:
+          GOOGLE_SHEETS_COORD_TOKEN: ${{ secrets.GOOGLE_SHEETS_COORD_TOKEN }}
+        run: |
+          if [ -z "$GOOGLE_SHEETS_COORD_TOKEN" ]; then
+            echo "::error::Configure o segredo GOOGLE_SHEETS_COORD_TOKEN em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
       - name: Gerar indicadores sem dados pessoais
         env:
           GOOGLE_SHEETS_COORD_TOKEN: ${{ secrets.GOOGLE_SHEETS_COORD_TOKEN }}
