@@ -277,13 +277,69 @@ function reportHtmlAnonymous(rows){
   const style='@page{size:A4;margin:15mm}*{box-sizing:border-box}body{font:11px Arial,sans-serif;color:#17304b;line-height:1.5;margin:0}header{background:#103358;color:white;padding:22px;border-bottom:5px solid #c6a158}header h1{font-size:23px;margin:7px 0}header p{margin:0;color:#dbe8f5}.content{padding:12px 3px}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.kpi{border:1px solid #d7e4ed;padding:11px;border-radius:8px;background:#f5f9fc}.kpi small{display:block;color:#57718a}.kpi b{font-size:20px;color:#103d6c}.panel{margin:16px 0;break-inside:avoid-page}.panel h2{font-size:15px;border-bottom:2px solid #dbe6f0;padding-bottom:6px;color:#103d6c}.donuts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.donutCard{text-align:center;border:1px solid #d7e4ed;border-radius:9px;padding:12px}.donutCard>b{display:block;min-height:28px}.ring{width:108px;height:108px;border-radius:50%;margin:10px auto;display:grid;place-items:center}.ring>div{width:76px;height:76px;border-radius:50%;background:white;display:grid;place-items:center;font-size:18px;font-weight:bold}.donutCard small{color:#657c90}.chart{display:grid;gap:10px}.barrow{display:grid;grid-template-columns:37% 1fr 75px;gap:9px;align-items:center}.barrow span{overflow-wrap:anywhere}.barrow strong{text-align:right;font-size:10px}.track{height:15px;background:#e6edf4;border-radius:4px;overflow:hidden}.barfill{height:100%;border-radius:4px}.note{background:#f0f5fa;padding:12px;border-left:4px solid #c6a158}.foot{border-top:1px solid #dbe6f0;margin-top:22px;padding-top:10px;color:#60758a;font-size:9px}@media print{header,.ring,.barfill,.kpi{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Relatório Anônimo Visual — IA na Advocacia</title><style>'+style+'</style></head><body><header><small>COMISSÃO DE INTELIGÊNCIA ARTIFICIAL E INOVAÇÃO EM TECNOLOGIA</small><h1>Diagnóstico de IA na Advocacia</h1><p>RELATÓRIO ANÔNIMO VISUAL · EDIÇÃO 2.0 · '+new Date().toLocaleString('pt-BR')+'</p></header><main class="content"><section class="panel"><h2>Painel executivo</h2><p>Resultados descritivos da amostra, sem identificação individual.</p><div class="kpis">'+kpis.map(([label,value])=>'<div class="kpi"><small>'+safe(label)+'</small><b>'+safe(value)+'</b></div>').join('')+'</div></section><section class="panel"><h2>Indicadores em destaque</h2><div class="donuts">'+donut('Adoção de IA',adopted)+donut('Risco elevado',highRisk)+donut('Maturidade avançada',rows.filter(r=>r.maturidade==='Avançada').length)+'</div></section>'+chart('Distribuição da maturidade',maturity)+chart('Classificação de risco',risk)+chart('Ferramentas de IA',tools)+chart('Aplicações profissionais',uses)+chart('Práticas de governança',governance)+chart('Prioridades de capacitação',training)+'<section class="panel"><h2>Recomendações para a Coordenação</h2><ol>'+insights.map(x=>'<li>'+safe(x)+'</li>').join('')+'<li>Plano de 90 dias: orientar, capacitar e reavaliar os indicadores.</li></ol></section><section class="panel"><h2>Metodologia e LGPD</h2><p class="note">Fonte: respostas da pesquisa, consolidadas no navegador da Coordenação. Recorte: '+safe(filterLabel().replace(/nome|oab/gi,'identificador'))+'. Indicadores de múltipla escolha podem somar mais de 100%. Categorias com menos de três menções foram omitidas. Nenhum nome, OAB, e-mail, texto livre ou registro individual é publicado. Amostras pequenas podem apresentar risco residual de reidentificação; resultados não representam toda a advocacia.</p></section><footer class="foot">Comissão de Inteligência Artificial e Inovação em Tecnologia · Dr. Marcos Amaral | Eng. Software e IA Rafael Passos<br>Copyright © Rafael Passos · Engenharia de Software, IA e Segurança da Informação</footer></main></body></html>';
 }
+
+/* Gráficos vetoriais no PDF: SVG explícito imprime mesmo com "imprimir gráficos de fundo" desligado. */
+function preparePrintableCharts(sourceHtml,masterRows=null){
+  const documentCopy=new DOMParser().parseFromString(sourceHtml,'text/html');
+  const escapeText=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const clamp=v=>Math.min(100,Math.max(0,Number.isFinite(Number(v))?Number(v):0));
+  const swatch=['#197bb9','#15a5a9','#6b79cd','#b78d45'];
+  const inlineBars=documentCopy.querySelectorAll('.barrow .track,.chartItem .chartLine,.rankrow .track');
+  inlineBars.forEach((track,index)=>{
+    const original=track.querySelector('.barfill,.chartFill,div[style*="width"]');
+    if(!original)return;
+    const percentage=clamp(parseFloat(original.style.width));
+    const color=swatch[index%swatch.length];
+    const description='Barra proporcional: '+percentage.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+    track.outerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="17" viewBox="0 0 320 17" preserveAspectRatio="none" role="img" aria-label="'+escapeText(description)+'"><rect x="0" y="0" width="320" height="17" rx="4" fill="#e4edf5"/><rect x="0" y="0" width="'+(percentage*3.2).toFixed(2)+'" height="17" rx="4" fill="'+color+'"/></svg>';
+  });
+  documentCopy.querySelectorAll('.ring,.donutRing').forEach((ring,index)=>{
+    const inner=ring.querySelector('div');
+    const raw=(inner?.textContent||'0').replace(',','.');
+    const percent=clamp(parseFloat(raw));
+    const perimeter=2*Math.PI*40, filled=(percent/100*perimeter).toFixed(2),rest=(perimeter-percent/100*perimeter).toFixed(2);
+    const label=inner?.textContent?.trim()||percent.toLocaleString('pt-BR')+'%';
+    ring.outerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112" viewBox="0 0 112 112" role="img" aria-label="'+escapeText('Gráfico circular: '+label)+'"><circle cx="56" cy="56" r="40" stroke="#e3ebf3" stroke-width="13" fill="none"/><circle cx="56" cy="56" r="40" stroke="'+swatch[index%swatch.length]+'" stroke-width="13" stroke-dasharray="'+filled+' '+rest+'" transform="rotate(-90 56 56)" fill="none"/><text x="56" y="62" font-family="Arial,sans-serif" fill="#173f66" font-size="18" font-weight="700" text-anchor="middle">'+escapeText(label)+'</text></svg>';
+  });
+  // O perfil Master nominal também recebe gráficos completos, não apenas tabelas.
+  if(Array.isArray(masterRows) && masterRows.length){
+    const n=masterRows.length;
+    const labels=[
+      ['Maturidade em IA',countRows(masterRows,r=>r.maturidade)],
+      ['Classificação de risco',countRows(masterRows,r=>r.risco)],
+      ['Ferramentas de IA',countRows(masterRows,r=>r.ferramentas,['Não utilizo IA atualmente']).slice(0,8)],
+      ['Aplicações profissionais',countRows(masterRows,r=>r.usos,['Nada ainda']).slice(0,8)],
+      ['Prioridades de capacitação',countRows(masterRows,r=>r.prioridade).slice(0,6)]
+    ];
+    const vectorChart=(title,data)=>{
+      const items=data.filter(x=>Number(x.value)>0);
+      const rows=items.map((x,i)=>{
+        const pct=clamp(Number(x.value)/n*100);
+        const svg='<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="17" viewBox="0 0 320 17" preserveAspectRatio="none" role="img" aria-label="'+escapeText(pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%')+'"><rect width="320" height="17" rx="4" fill="#e4edf5"/><rect width="'+(pct*3.2).toFixed(2)+'" height="17" rx="4" fill="'+swatch[i%4]+'"/></svg>';
+        return '<div class="printVectorRow"><span>'+escapeText(x.label)+'</span>'+svg+'<strong>'+Number(x.value)+' · '+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%</strong></div>';
+      }).join('');
+      return '<section class="printVectorSection"><h3>'+escapeText(title)+'</h3>'+(rows||'<p>Sem dados neste recorte.</p>')+'</section>';
+    };
+    const block=documentCopy.createElement('section');
+    block.className='printVectorOverview';
+    block.innerHTML='<h2>Gráficos do diagnóstico</h2>'+labels.map(([title,data])=>vectorChart(title,data)).join('');
+    const intro=documentCopy.querySelector('.cover');
+    if(intro)intro.insertAdjacentElement('afterend',block);
+    else documentCopy.body.prepend(block);
+  }
+  const stylesheet=documentCopy.createElement('style');
+  stylesheet.textContent='@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}svg{max-width:100%!important;display:block!important;visibility:visible!important;break-inside:avoid}.printVectorSection,.chartSection,.panel,.donutCard{break-inside:avoid-page;page-break-inside:avoid}}.printVectorOverview{margin:20px 0}.printVectorOverview>h2{font-size:14pt;color:#0F2C59;border-bottom:2px solid #d9e2f0}.printVectorSection{border:1px solid #dbe5f0;border-radius:7px;padding:10px;margin:12px 0;break-inside:avoid}.printVectorSection h3{font-size:11pt;color:#244965;margin:0 0 10px}.printVectorRow{display:grid;grid-template-columns:33% 1fr 78px;align-items:center;gap:9px;margin:8px 0;font-size:8.5pt}.printVectorRow span{overflow-wrap:anywhere}.printVectorRow strong{font-size:8pt;text-align:right}.donutCard svg{display:block;margin:9px auto}.donuts svg{display:block;margin:9px auto}';
+  documentCopy.head.append(stylesheet);
+  return '<!doctype html>\n'+documentCopy.documentElement.outerHTML;
+}
+
 function exportPdf(){
   const rows=activeRows();if(!rows.length){alert('Não há respostas para exportar com os filtros atuais.');return}
   const nominal=$('reportPrivacy').value==='nominal';
   if(nominal&&!confirm('Este PDF incluirá os nomes e números da OAB. Confirma a exportação nominal para uso restrito?'))return;
   if(!nominal&&rows.length<5&&!confirm('O filtro selecionado contém menos de cinco respostas. Mesmo sem nomes, amostras pequenas podem revelar identidades indiretamente. Deseja continuar?'))return;
   const report=window.open('','_blank');if(!report){alert('O navegador bloqueou a janela do relatório. Permita pop-ups para este arquivo e tente novamente.');return}
-  report.document.open();report.document.write(nominal?reportHtml(rows):reportHtmlAnonymous(rows));report.document.close();report.focus();setTimeout(()=>report.print(),250);
+  report.document.open();report.document.write(preparePrintableCharts(nominal?reportHtml(rows):reportHtmlAnonymous(rows),nominal?rows:null));report.document.close();report.focus();setTimeout(()=>report.print(),250);
 }
 ['filterRisk','filterMaturity','filterLevel','filterFrom','filterTo'].forEach(id=>$(id).addEventListener('change',refreshFiltered));
 $('search').addEventListener('input',refreshFiltered);
@@ -420,7 +476,7 @@ safeButton.onclick=()=>{
  if(Number(k.adoptionPct)>=50)notes.push('A adoção de IA justifica ações voltadas ao uso responsável, além da introdução às ferramentas.');
  const html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Diagnóstico de IA — Relatório Anônimo</title><style>@page{size:A4;margin:16mm}*{box-sizing:border-box}body{font:11px Arial,sans-serif;color:#18314d;margin:0;line-height:1.5}header{padding:23px 25px;background:#102e53;color:white;border-bottom:5px solid #caa65a}header h1{font-size:24px;margin:8px 0}header p{margin:3px 0;color:#d6e5f4}.content{padding:18px 5px}h2{font-size:15px;color:#153b66;border-bottom:2px solid #d6e4f2;padding-bottom:7px;margin:24px 0 12px}section{break-inside:avoid-page}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.metric{border:1px solid #dce5ed;background:#f5f9fd;border-radius:8px;padding:12px}.metric span{display:block;color:#567087;font-size:10px}.metric strong{display:block;font-size:19px;color:#123c69;margin-top:4px}.rankrow{display:grid;grid-template-columns:1fr 145px;gap:15px;align-items:center;padding:9px 0;border-bottom:1px solid #e5edf4}.rankrow b{display:block;font-size:11px}.rankrow small{color:#667e92}.track{height:9px;background:#e5eef5;border-radius:20px;overflow:hidden}.track div{height:100%;background:#2489bf;border-radius:20px}.note{padding:11px 14px;background:#f2f6fa;border-left:3px solid #b99850;color:#3e5268}.chartSection{break-inside:avoid-page}.donutGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.donutCard{border:1px solid #dce6ee;border-radius:9px;text-align:center;padding:12px 5px}.donutTitle{font-size:10px;font-weight:bold;min-height:32px}.donutRing{width:100px;height:100px;border-radius:50%;margin:8px auto;display:grid;place-items:center}.donutRing>div{width:70px;height:70px;border-radius:50%;background:white;display:grid;place-items:center;font-weight:bold;font-size:17px;color:#173f66}.donutCard small,.chartCaption{color:#62788b;font-size:9px}.chartBars{display:grid;gap:10px}.chartItem{display:grid;grid-template-columns:160px 1fr 52px;gap:10px;align-items:center}.chartLabel{font-size:10px}.chartLine{height:16px;background:#e6edf4;border-radius:5px;overflow:hidden}.chartFill{height:100%;border-radius:5px}.chartItem strong{text-align:right;font-size:10px}.foot{font-size:9px;color:#667c90;margin-top:25px;border-top:1px solid #dce6ef;padding-top:12px}li{margin:7px 0}@media print{section{break-inside:avoid-page}header{-webkit-print-color-adjust:exact;print-color-adjust:exact}.track div,.donutRing,.chartFill{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><header><small>COMISSÃO DE INTELIGÊNCIA ARTIFICIAL E INOVAÇÃO EM TECNOLOGIA</small><h1>Diagnóstico de Inteligência Artificial na Advocacia</h1><p>Relatório estatístico anonimizado · '+new Date().toLocaleDateString('pt-BR')+'</p></header><div class="content"><section><h2>Sumário executivo</h2><p>Levantamento descritivo baseado em '+n+' respostas, com dados exclusivamente agregados. Os indicadores representam a amostra pesquisada e não devem ser extrapolados para toda a advocacia.</p><div class="metrics">'+metricsHtml+'</div></section>'+visualCharts+distribution('Distribuição de maturidade',dist.maturity)+distribution('Distribuição de risco',dist.risk)+ranking('Ferramentas de IA mais utilizadas',rank.tools)+ranking('Aplicações práticas na advocacia',rank.uses)+ranking('Práticas de governança e verificação',rank.governance)+ranking('Demandas de capacitação',rank.training)+ranking('Sistemas e soluções jurídicas',rank.systems)+'<section><h2>Interpretação e recomendações</h2>'+(notes.length?'<ul>'+notes.map(x=>'<li>'+escText(x)+'</li>').join('')+'</ul>':'<p>Os dados disponíveis não sustentam recomendações quantitativas adicionais.</p>')+'<p><b>Plano sugerido de 90 dias:</b> primeiros 30 dias: diagnóstico e orientações; dias 31–60: capacitação e boas práticas; dias 61–90: avaliação de resultados e revisão das recomendações.</p></section><section><h2>Metodologia e proteção de dados</h2><div class="note">Fonte: resumo estatístico agregado publicado pela pesquisa. Percentuais e médias refletem as métricas já consolidadas na origem. Perguntas de múltipla escolha podem somar mais de 100%. Categorias com menos de três menções são omitidas. Nenhum nome, número da OAB, e-mail, registro individual ou resposta textual livre é incluído. A anonimização não elimina integralmente o risco de identificação indireta, sobretudo em amostras pequenas. Indicadores sem dados disponíveis não são estimados.</div></section><div class="foot">Comissão de Inteligência Artificial e Inovação em Tecnologia · Dr. Marcos Amaral | Eng. Software e IA Rafael Passos<br>Relatório gerado em '+new Date().toLocaleString('pt-BR')+' · Uso institucional · Respeito à LGPD</div></div></body></html>';
  const w=window.open('','_blank');if(!w){alert('Permita pop-ups para gerar o PDF anônimo.');return;}
- w.document.open();w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),500);
+ w.document.open();w.document.write(preparePrintableCharts(html));w.document.close();w.focus();setTimeout(()=>w.print(),500);
 };
 })();
 </script>
